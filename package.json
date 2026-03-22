@@ -1,0 +1,12 @@
+{
+  "name": "caller",
+  "version": "1.0.0",
+  "description": "Google keyword crawler with manual-like browsing on Chromium",
+  "main": "google_caller.js",
+  "scripts": {
+    "start": "node google_caller.js"
+  },
+  "dependencies": {
+    "playwright": "^1.53.0"
+  }
+}

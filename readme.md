@@ -1,0 +1,135 @@
+# Caller 项目说明
+
+本项目用于自动化执行 Google 关键词检索，并按指定公司识别词进行命中判断、深度翻查与日志记录。
+
+## 1. 业务流程
+
+1. 打开浏览器并进入 Google。
+2. 从 `keywords.csv` 读取关键词，按顺序逐个搜索。
+3. 在每页结果中匹配 `info.csv` 中的公司识别词。
+4. 命中后进入结果页，慢速下拉并继续站内翻查。
+5. 回到 Google 继续下一页，直到末页。
+6. 切换下一个关键词，重复以上过程。
+
+## 2. 文件说明
+
+- `google_caller.js`：主程序。
+- `keywords.csv`：关键词输入，每行一个词。
+- `info.csv`：识别词输入，每行一个词。
+- `start.bat`：Windows 批处理启动脚本。
+- `start.ps1`：PowerShell 启动脚本。
+- `LOG-YYMMDD.TXT`：每日运行日志，例如 `LOG-260322.TXT`。
+
+## 3. 环境要求
+
+- Node.js 18+（建议 LTS 版本）
+- 可访问 Google 的网络环境
+
+## 4. 安装与运行
+
+首次安装：
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+常规运行：
+
+```bash
+npm start
+```
+
+Windows 快速启动：
+
+- 双击 `start.bat`，或
+- 在 PowerShell 执行：
+
+```powershell
+.\start.ps1
+```
+
+## 5. 可选环境变量
+
+基础行为：
+
+- `HEADLESS=1`：无头模式运行（默认显示浏览器）。
+- `MAX_GOOGLE_PAGES=20`：每个关键词最多翻查页数。
+- `DWELL_MS_PER_PAGE=120000`：每页停留时长（毫秒）。
+- `DEEP_BROWSE_PAGES=3`：命中后站内继续翻查页数。
+- `PROCESS_ALL_HITS_IN_PAGE=1`：同页命中是否全部处理（默认只处理第一个）。
+
+Clash 切换（可选）：
+
+- `ENABLE_CLASH_SWITCH=1`：启用节点自动切换。
+- `SWITCH_NODE_INTERVAL=5`：每 N 个关键词切换一次。
+- `CLASH_API_HOST=127.0.0.1`：Clash API 主机。
+- `CLASH_API_PORT=9090`：Clash API 端口。
+- `CLASH_API_SECRET=`：Clash API 密钥（如有）。
+- `CLASH_PROXY_GROUP=`：指定代理组（默认首个 Selector 组）。
+- `CLEAR_COOKIES_ON_SWITCH=1`：切换时清空 Cookie。
+- `PAUSE_AFTER_SWITCH_MS=5000`：切换后暂停毫秒数。
+
+PowerShell 示例：
+
+```powershell
+$env:HEADLESS='0'
+$env:MAX_GOOGLE_PAGES='15'
+$env:DWELL_MS_PER_PAGE='120000'
+$env:DEEP_BROWSE_PAGES='3'
+npm start
+```
+
+## 6. 输入文件格式
+
+- 文件编码：UTF-8
+- 无表头
+- 每行一个完整词条
+- 行首行尾空格会被自动 trim
+- 空行会被忽略
+
+示例 `keywords.csv`：
+
+```text
+Optic FIC
+Optic fast connector SC
+```
+
+示例 `info.csv`：
+
+```text
+Qyftth
+Ysfiber
+```
+
+## 7. 日志格式
+
+每个关键词至少输出一行汇总：
+
+- 命中示例：`关键词 - P1-P2-P3-P4✔-P5`
+- 未命中示例：`关键词 - P1-P2-P3-P4-到末页`
+
+命中时追加详情行：
+
+- `关键词-P页码-Google命中链接-翻查链接1-翻查链接2`
+
+## 8. 协作规范
+
+- 尽量只修改自己负责的文件，避免并发冲突。
+- 修改 `google_caller.js` 时，保持日志主格式兼容。
+- 新增配置优先使用环境变量，避免硬编码。
+- 若调整输入格式，必须同步更新本文件对应章节。
+
+## 9. 常见问题
+
+1. 报错 `Executable doesn't exist`
+   处理：执行 `npx playwright install chromium`。
+
+2. Playwright 下载失败
+   处理：配置代理后重试。
+
+```bash
+npm config set proxy http://127.0.0.1:7890
+npm config set https-proxy http://127.0.0.1:7890
+```
+

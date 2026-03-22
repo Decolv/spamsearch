@@ -18,6 +18,8 @@
 - `info.csv`：识别词输入，每行一个词。
 - `start.bat`：Windows 批处理启动脚本。
 - `start.ps1`：PowerShell 启动脚本。
+- `setup-local.bat`：Windows 一键本地环境配置。
+- `setup-local.ps1`：PowerShell 一键本地环境配置。
 - `LOG-YYMMDD.TXT`：每日运行日志，例如 `LOG-260322.TXT`。
 
 ## 3. 环境要求
@@ -27,7 +29,28 @@
 
 ## 4. 安装与运行
 
-首次安装：
+一键配置本地环境（推荐）：
+
+```bash
+npm run setup
+```
+
+或 Windows 双击：
+
+- `setup-local.bat`
+
+或在 PowerShell 执行：
+
+```powershell
+.\setup-local.ps1
+```
+
+上述步骤会自动执行：
+
+1. `npm install`
+2. `npx playwright install chromium`
+
+手动安装（等价流程）：
 
 ```bash
 npm install

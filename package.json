@@ -1,10 +1,12 @@
 {
   "name": "caller",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Google keyword crawler with manual-like browsing on Chromium",
   "main": "google_caller.js",
   "scripts": {
-    "start": "node google_caller.js"
+    "start": "node google_caller.js",
+    "setup": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup-local.ps1",
+    "setup:win": "setup-local.bat"
   },
   "dependencies": {
     "playwright": "^1.53.0"

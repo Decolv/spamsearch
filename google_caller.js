@@ -41,6 +41,7 @@ async function sleepRandom(baseMs) {
   console.log(`  [Random delay: ${delay}ms]`);
   await sleep(delay);
 }
+  loopAllKeywords: process.env.LOOP_ALL_KEYWORDS !== '0',
 
 function readSimpleCsvLines(fileName) {
   const full = path.join(process.cwd(), fileName);
@@ -74,6 +75,123 @@ function openLogFile() {
       fs.appendFileSync(filePath, `${line}\n`, 'utf8');
       console.log(line);
     }
+  };
+}
+
+function createRuntimeStatusBar(totalKeywords) {
+  const isEnabled = process.stdout.isTTY && process.env.STATUS_BAR !== '0';
+  const state = {
+    keywordIndex: 0,
+    totalKeywords,
+    keyword: '',
+    pageIndex: 0,
+    maxPages: CONFIG.maxGooglePages,
+    hitCount: 0,
+    errorCount: 0,
+    proxyMode: CONFIG.enableClashSwitch ? 'Clash' : 'Local',
+    switchInfo: '未切换',
+    phase: '初始化'
+  };
+
+  function cleanText(value) {
+    return String(value || '').replace(/[\r\n\t]+/g, ' ').trim();
+  }
+
+  function clipKeyword(keyword) {
+    const text = cleanText(keyword);
+    if (text.length <= 16) {
+      return text;
+    }
+    return `${text.slice(0, 16)}...`;
+  }
+
+  function clearLine() {
+    if (!isEnabled) {
+      return;
+    }
+    process.stdout.write('\r\x1b[2K');
+  }
+
+  function formatLine() {
+    const keywordLabel = clipKeyword(state.keyword || '-');
+    return [
+      `[状态] 关键词 ${state.keywordIndex}/${state.totalKeywords}`,
+      `当前: ${keywordLabel}`,
+      `页码 ${state.pageIndex}/${state.maxPages}`,
+      `命中 ${state.hitCount}`,
+      `错误 ${state.errorCount}`,
+      `代理 ${state.proxyMode}`,
+      `切换 ${state.switchInfo}`,
+      `阶段 ${state.phase}`
+    ].join(' | ');
+  }
+
+  function render() {
+    if (!isEnabled) {
+      return;
+    }
+    clearLine();
+    process.stdout.write(formatLine());
+  }
+
+  return {
+    enabled: isEnabled,
+    update(patch) {
+      Object.assign(state, patch);
+      render();
+    },
+    addHits(count) {
+      if (!count) {
+        return;
+      }
+      state.hitCount += count;
+      render();
+    },
+    addError() {
+      state.errorCount += 1;
+      render();
+    },
+    clearLine,
+    render,
+    teardown() {
+      clearLine();
+    }
+  };
+}
+
+function createStatusAwareConsole(statusBar) {
+  const original = {
+    log: console.log.bind(console),
+    error: console.error.bind(console),
+    warn: console.warn.bind(console)
+  };
+
+  function wrap(method) {
+    return (...args) => {
+      if (statusBar.enabled) {
+        statusBar.clearLine();
+      }
+
+      method(...args);
+
+      if (statusBar.enabled) {
+        statusBar.render();
+      }
+    };
+  }
+
+  console.log = wrap(original.log);
+  console.error = wrap(original.error);
+  console.warn = wrap(original.warn);
+
+  return {
+    restore() {
+      console.log = original.log;
+      console.error = original.error;
+      console.warn = original.warn;
+    },
+    log: original.log,
+    error: original.error
   };
 }
 
@@ -470,23 +588,40 @@ async function run() {
     throw new Error('info.csv is empty.');
   }
 
+  const statusBar = createRuntimeStatusBar(keywords.length);
+  const consoleGuard = createStatusAwareConsole(statusBar);
+  statusBar.update({
+    totalKeywords: keywords.length,
+    pageIndex: 0,
+    maxPages: CONFIG.maxGooglePages,
+    phase: '准备启动'
+  });
+
+  try {
+
   let clashController = null;
   if (CONFIG.enableClashSwitch) {
+    statusBar.update({ proxyMode: 'Clash', phase: '连接 Clash API' });
     clashController = new ClashController();
     const connected = await clashController.testConnection();
     if (connected) {
       console.log('Clash API connected');
       console.log('Switching to next node on start...');
+      statusBar.update({ phase: '切换初始节点', switchInfo: '启动切换中' });
       await clashController.switchToNextNode(CONFIG.clashProxyGroup || null);
       const pauseAfterSwitch = randomDelay(Number(process.env.PAUSE_AFTER_SWITCH_MS || 5000));
       if (pauseAfterSwitch > 0) {
         console.log(`Pausing ${pauseAfterSwitch}ms after initial switch...`);
         await sleep(pauseAfterSwitch);
       }
+      statusBar.update({ switchInfo: '已切换', phase: '准备搜索' });
     } else {
       console.log('Warning: Cannot connect to Clash API, switching disabled');
       clashController = null;
+      statusBar.update({ proxyMode: 'Local', switchInfo: '不可用', phase: '准备搜索' });
     }
+  } else {
+    statusBar.update({ proxyMode: 'Local', phase: '准备搜索' });
   }
 
   const browser = await chromium.launch({
@@ -512,12 +647,35 @@ async function run() {
   console.log('');
 
   let keywordCount = 0;
+  let round = 1;
 
-  for (const keyword of keywords) {
+  console.log(`\n=== Round ${round} started ===`);
+  while (CONFIG.loopAllKeywords || keywordCount < keywords.length) {
+    const keywordIndexInRound = (keywordCount % keywords.length) + 1;
+    const keyword = keywords[keywordIndexInRound - 1];
+
+    if (keywordIndexInRound === 1 && keywordCount > 0) {
+      round += 1;
+      console.log(`\n=== Round ${round} started ===`);
+      statusBar.update({
+        keywordIndex: 0,
+        keyword: '',
+        pageIndex: 0,
+        phase: `第 ${round} 轮开始`
+      });
+    }
+
     keywordCount++;
+    statusBar.update({
+      keywordIndex: keywordIndexInRound,
+      keyword,
+      pageIndex: 0,
+      phase: `第 ${round} 轮进入关键词`
+    });
 
     if (keywordCount > 1 && CONFIG.switchNodeInterval > 0 && (keywordCount - 1) % CONFIG.switchNodeInterval === 0) {
       console.log(`\n--- Switching after ${CONFIG.switchNodeInterval} keywords ---`);
+      statusBar.update({ phase: '节点切换', switchInfo: '切换中' });
 
       if (clashController) {
         await clashController.switchToNextNode(CONFIG.clashProxyGroup || null);
@@ -546,6 +704,7 @@ async function run() {
       }
 
       console.log('--- Continue searching ---\n');
+      statusBar.update({ switchInfo: '已切换', phase: '继续搜索' });
     }
 
     // Wrap entire keyword processing in try-catch
@@ -575,9 +734,11 @@ async function run() {
     let pageIndex = 1;
     console.log(`\n=== Starting keyword: "${keyword}" ===`);
     console.log(`Will search up to ${CONFIG.maxGooglePages} pages`);
+    statusBar.update({ pageIndex, phase: '关键词搜索中' });
     
     while (pageIndex <= CONFIG.maxGooglePages) {
       console.log(`\n--- Processing page ${pageIndex} ---`);
+      statusBar.update({ pageIndex, phase: '抓取结果页' });
       
       // Check for captcha before processing page
       await checkAndWaitForCaptcha(searchPage, clashController);
@@ -588,6 +749,7 @@ async function run() {
       console.log(`  Found ${results.length} results on page ${pageIndex}`);
       const hits = results.filter((r) => matchesCompanyInfo(r, companyInfoNeedles));
       console.log(`  Found ${hits.length} hits matching company info`);
+      statusBar.addHits(hits.length);
 
       const pageTag = `P${pageIndex}`;
       const hasHit = hits.length > 0;
@@ -601,6 +763,7 @@ async function run() {
           const hit = targetHits[i];
           console.log(`  [Hit ${i + 1}/${targetHits.length}] Visiting: ${hit.title}`);
           console.log(`    URL: ${hit.href}`);
+          statusBar.update({ phase: `处理命中 ${i + 1}/${targetHits.length}` });
           const visited = [];
 
           try {
@@ -654,6 +817,8 @@ async function run() {
             console.log(`    Done visiting hit ${i + 1}`);
           } catch (err) {
             console.log(`    ERROR: ${err.message}`);
+            statusBar.addError();
+            statusBar.update({ phase: '命中处理异常' });
             visited.push(`ERROR:${String(err.message || err).slice(0, 80)}`);
             
             // Try to recreate detail page after error
@@ -674,6 +839,7 @@ async function run() {
       const hasNext = await goNextGooglePage(searchPage);
       if (!hasNext) {
         console.log(`  No next page available, breaking loop at page ${pageIndex}`);
+        statusBar.update({ phase: '到达末页' });
         break;
       }
 
@@ -687,6 +853,7 @@ async function run() {
 
       pageIndex += 1;
       console.log(`  Now processing page ${pageIndex}`);
+      statusBar.update({ pageIndex, phase: '翻页完成' });
     }
 
     const summary = `${keyword} - ${pageTrail.join('-')}${detailLines.length === 0 ? '-到末页' : ''}`;
@@ -697,13 +864,24 @@ async function run() {
       }
 
       await sleepRandom(CONFIG.perKeywordPauseMs);
+      statusBar.update({ phase: '关键词完成' });
+
+      if (keywordIndexInRound === keywords.length) {
+        console.log(`=== Round ${round} finished ===`);
+        if (CONFIG.loopAllKeywords) {
+          statusBar.update({ phase: `第 ${round + 1} 轮待开始` });
+        }
+      }
     } catch (err) {
       console.log(`\n[ERROR] Failed to process keyword "${keyword}": ${err.message}`);
+      statusBar.addError();
+      statusBar.update({ phase: '关键词恢复中' });
       
       // Try to recover by switching node and recreating browser context
       if (clashController) {
         console.log('  Switching node due to error...');
         await clashController.switchToNextNode(CONFIG.clashProxyGroup || null);
+        statusBar.update({ switchInfo: '异常后切换', phase: '恢复中' });
       }
       
       try {
@@ -721,8 +899,11 @@ async function run() {
         searchPage = await context.newPage();
         detailPage = await context.newPage();
         console.log('  Browser context recreated, continuing with next keyword...\n');
+        statusBar.update({ phase: '恢复完成' });
       } catch (e) {
         console.log(`  Failed to recover: ${e.message}`);
+        statusBar.addError();
+        statusBar.update({ phase: '恢复失败' });
       }
     }
   }
@@ -730,7 +911,16 @@ async function run() {
   await context.close();
   await browser.close();
 
+  statusBar.update({
+    keywordIndex: keywords.length,
+    pageIndex: 0,
+    phase: '全部完成'
+  });
   console.log(`Done. Log written to ${logger.fileName}`);
+  } finally {
+    statusBar.teardown();
+    consoleGuard.restore();
+  }
 }
 
 run().catch((err) => {

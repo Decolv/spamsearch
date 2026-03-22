@@ -20,7 +20,8 @@ const CONFIG = {
   pageTurnDelayMin: Number(process.env.PAGE_TURN_DELAY_MIN || 10000),
   pageTurnDelayMax: Number(process.env.PAGE_TURN_DELAY_MAX || 25000),
   captchaCheckInterval: Number(process.env.CAPTCHA_CHECK_INTERVAL || 2000),
-  captchaTimeout: Number(process.env.CAPTCHA_TIMEOUT || 600000)
+  captchaTimeout: Number(process.env.CAPTCHA_TIMEOUT || 600000),
+  loopAllKeywords: process.env.LOOP_ALL_KEYWORDS !== '0'
 };
 
 function sleep(ms) {
@@ -41,7 +42,6 @@ async function sleepRandom(baseMs) {
   console.log(`  [Random delay: ${delay}ms]`);
   await sleep(delay);
 }
-  loopAllKeywords: process.env.LOOP_ALL_KEYWORDS !== '0',
 
 function readSimpleCsvLines(fileName) {
   const full = path.join(process.cwd(), fileName);

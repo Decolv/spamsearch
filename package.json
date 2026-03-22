@@ -5,7 +5,7 @@
   "main": "google_caller.js",
   "scripts": {
     "start": "node google_caller.js",
-    "setup": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup-local.ps1",
+    "setup": "setup-local.bat",
     "setup:win": "setup-local.bat"
   },
   "dependencies": {

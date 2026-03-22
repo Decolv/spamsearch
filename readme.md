@@ -17,9 +17,7 @@
 - `keywords.csv`：关键词输入，每行一个词。
 - `info.csv`：识别词输入，每行一个词。
 - `start.bat`：Windows 批处理启动脚本。
-- `start.ps1`：PowerShell 启动脚本。
 - `setup-local.bat`：Windows 一键本地环境配置。
-- `setup-local.ps1`：PowerShell 一键本地环境配置。
 - `LOG-YYMMDD.TXT`：每日运行日志，例如 `LOG-260322.TXT`。
 
 ## 3. 环境要求
@@ -57,12 +55,6 @@ npm run setup
 
 - `setup-local.bat`
 
-或在 PowerShell 执行：
-
-```powershell
-.\setup-local.ps1
-```
-
 上述步骤会自动执行：
 
 1. `npm install`
@@ -83,12 +75,7 @@ npm start
 
 Windows 快速启动：
 
-- 双击 `start.bat`，或
-- 在 PowerShell 执行：
-
-```powershell
-.\start.ps1
-```
+- 双击 `start.bat`
 
 `start.bat` 的“修改配置”菜单会自动把设置保存到本地 `start.local.env.bat`，下次启动会自动加载。
 

@@ -7,5 +7,4 @@
 ### Notes
 - Existing one-click local setup remains:
   - npm run setup
-  - setup-local.ps1
   - setup-local.bat

@@ -27,6 +27,24 @@
 - Node.js 18+（建议 LTS 版本）
 - 可访问 Google 的网络环境
 
+### 3.1 Windows 安装 Node.js（首次使用必看）
+
+1. 打开 Node.js 官网下载页：https://nodejs.org/
+2. 下载并安装 `LTS` 版本（默认选项一路 Next 即可）。
+3. 安装完成后，关闭并重新打开终端。
+4. 验证安装：
+
+```powershell
+node -v
+npm -v
+```
+
+若提示“不是内部或外部命令”，通常是 PATH 尚未生效：
+
+1. 重新打开终端后再试。
+2. 若仍失败，重启系统后重试。
+3. 仍有问题时，重新安装 Node.js 并确认勾选“Add to PATH”。
+
 ## 4. 安装与运行
 
 一键配置本地环境（推荐）：
@@ -155,4 +173,22 @@ Ysfiber
 npm config set proxy http://127.0.0.1:7890
 npm config set https-proxy http://127.0.0.1:7890
 ```
+
+## 10. Agent 代安装说明
+
+如果你希望让 AI Agent 代你执行安装，可在 VS Code 的 Copilot Chat 中直接发送下面这段指令：
+
+```text
+请在当前仓库完成本地环境安装并回报结果：
+1) 检查 Node.js 和 npm 是否可用（输出 node -v、npm -v）；
+2) 如果缺少 Node.js，先给出安装指引并等待我确认；
+3) 执行 npm run setup；
+4) 验证 Playwright Chromium 是否可用；
+5) 最后给出“是否可直接运行 npm start”的结论。
+```
+
+说明：
+
+- 本仓库的一键安装命令是 `npm run setup`。
+- Windows 也可直接双击 `setup-local.bat`。
 

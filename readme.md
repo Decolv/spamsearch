@@ -177,6 +177,31 @@ npm config set proxy http://127.0.0.1:7890
 npm config set https-proxy http://127.0.0.1:7890
 ```
 
+若提示 `ECONNRESET`（下载中连接被重置），建议按顺序处理：
+
+1. 直接重跑一次（已内置重试）：
+
+```bash
+npm run setup
+```
+
+2. 临时设置代理后再装：
+
+```bash
+set HTTP_PROXY=http://127.0.0.1:7890
+set HTTPS_PROXY=http://127.0.0.1:7890
+npx playwright install chromium
+```
+
+3. 指定 Playwright 下载镜像再重试：
+
+```bash
+set PLAYWRIGHT_DOWNLOAD_HOST=https://playwright.azureedge.net
+rem 或
+set PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright
+npx playwright install chromium
+```
+
 ## 11. Agent 代安装说明
 
 如果你希望让 AI Agent 代你执行安装，可在 VS Code 的 Copilot Chat 中直接发送下面这段指令：

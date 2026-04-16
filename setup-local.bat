@@ -30,19 +30,13 @@ echo Detected npm:
 npm -v
 echo.
 
-if exist "start.local.env.bat" (
-  call start.local.env.bat >nul 2>nul
-)
+call start.local.env.bat >nul 2>nul
 
-if not defined HTTP_PROXY (
-  if defined LOCAL_DEFAULT_PROXY (
-    set "HTTP_PROXY=%LOCAL_DEFAULT_PROXY%"
-  )
-)
-
-if not defined HTTPS_PROXY (
-  if defined LOCAL_DEFAULT_PROXY (
-    set "HTTPS_PROXY=%LOCAL_DEFAULT_PROXY%"
+for %%P in (HTTP_PROXY HTTPS_PROXY) do (
+  if not defined %%P (
+    if defined LOCAL_DEFAULT_PROXY (
+      set "%%P=%LOCAL_DEFAULT_PROXY%"
+    )
   )
 )
 
@@ -52,23 +46,32 @@ if not defined PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT (
 
 if not defined PLAYWRIGHT_DOWNLOAD_HOST (
   set "PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright"
-  set "PLAYWRIGHT_DOWNLOAD_HOST_FROM_SETUP=1"
+  echo Using temporary mirror host for this setup run only: https://npmmirror.com/mirrors/playwright
 )
 
 echo [1/2] Installing project dependencies via npm install
+set /a "NPM_TRY=1"
+:NPM_INSTALL_RETRY
+echo Attempt !NPM_TRY!/%PLAYWRIGHT_INSTALL_RETRIES%: npm install
 call npm install
-if errorlevel 1 (
-  set EXIT_CODE=%ERRORLEVEL%
-  goto :END
-)
+if not errorlevel 1 goto :NPM_INSTALL_OK
+
+set EXIT_CODE=%ERRORLEVEL%
+if !NPM_TRY! GEQ %PLAYWRIGHT_INSTALL_RETRIES% goto :END
+
+echo npm install failed, retrying in 5 seconds...
+timeout /t 5 /nobreak >nul
+set /a "NPM_TRY+=1"
+goto :NPM_INSTALL_RETRY
+
+:NPM_INSTALL_OK
 
 echo.
 echo [2/2] Installing Playwright Chromium
 if defined HTTP_PROXY echo HTTP_PROXY=%HTTP_PROXY%
 if defined HTTPS_PROXY echo HTTPS_PROXY=%HTTPS_PROXY%
 if defined PLAYWRIGHT_DOWNLOAD_HOST echo PLAYWRIGHT_DOWNLOAD_HOST=%PLAYWRIGHT_DOWNLOAD_HOST%
-if defined PLAYWRIGHT_DOWNLOAD_HOST_FROM_SETUP echo Mirror source is temporary for this setup run only.
-echo PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=%PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT%
+if defined PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT echo PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=%PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT%
 echo.
 
 set /a "PW_TRY=1"
@@ -86,7 +89,6 @@ set /a "PW_TRY+=1"
 goto :PW_INSTALL_RETRY
 
 :PW_INSTALL_OK
-set EXIT_CODE=0
 goto :END
 
 :PW_INSTALL_FAIL

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 const { ClashController } = require('./clash-controller');
+const { getStealthInitScript } = require('./stealth-utils');
 
 const CONFIG = {
   googleUrl: process.env.GOOGLE_URL || 'https://www.google.com/',
@@ -627,16 +628,29 @@ async function run() {
   const browser = await chromium.launch({
     channel: 'chromium',
     headless: CONFIG.headless,
-    slowMo: 120
+    slowMo: 120,
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--disable-features=IsolateOrigins,site-per-process'
+    ]
   });
 
   const chromeUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+  const stealthScript = getStealthInitScript();
+
   let context = await browser.newContext({
     viewport: { width: 1400, height: 900 },
     userAgent: chromeUserAgent,
-    ignoreHTTPSErrors: true
+    locale: 'en-US',
+    timezoneId: 'America/New_York',
+    deviceScaleFactor: 1,
+    colorScheme: 'light',
+    hasTouch: false,
+    ignoreHTTPSErrors: true,
+    permissions: ['notifications']
   });
+  await context.addInitScript(stealthScript);
 
   let searchPage = await context.newPage();
   let detailPage = await context.newPage();
@@ -689,8 +703,15 @@ async function run() {
         context = await browser.newContext({
           viewport: { width: 1400, height: 900 },
           userAgent: chromeUserAgent,
-          ignoreHTTPSErrors: true
+          locale: 'en-US',
+          timezoneId: 'America/New_York',
+          deviceScaleFactor: 1,
+          colorScheme: 'light',
+          hasTouch: false,
+          ignoreHTTPSErrors: true,
+          permissions: ['notifications']
         });
+        await context.addInitScript(stealthScript);
 
         searchPage = await context.newPage();
         detailPage = await context.newPage();
@@ -893,9 +914,16 @@ async function run() {
         context = await browser.newContext({
           viewport: { width: 1400, height: 900 },
           userAgent: chromeUserAgent,
-          ignoreHTTPSErrors: true
+          locale: 'en-US',
+          timezoneId: 'America/New_York',
+          deviceScaleFactor: 1,
+          colorScheme: 'light',
+          hasTouch: false,
+          ignoreHTTPSErrors: true,
+          permissions: ['notifications']
         });
-        
+        await context.addInitScript(stealthScript);
+
         searchPage = await context.newPage();
         detailPage = await context.newPage();
         console.log('  Browser context recreated, continuing with next keyword...\n');

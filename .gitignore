@@ -18,6 +18,7 @@ test-results/
 .env.*
 !.env.example
 *.local
+.claude/settings.local.json
 
 # OS / editor files
 .DS_Store
